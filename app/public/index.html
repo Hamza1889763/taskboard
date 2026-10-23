@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TaskBoard | DevOps Lab</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="card">
+    <header>
+      <h1 id="app-title">TaskBoard</h1>
+      <p class="sub">Dockerized Node.js + MongoDB app on AWS EC2</p>
+      <div class="badges">
+        <span class="badge" id="instance-id">Served by: loading...</span>
+        <span class="badge" id="az">AZ: ...</span>
+        <span class="badge" id="db-status">DB: checking...</span>
+      </div>
+    </header>
+
+    <form id="task-form">
+      <input id="task-input" type="text" placeholder="Add a new task..." maxlength="200" autocomplete="off" required>
+      <button id="add-btn" type="submit">Add</button>
+    </form>
+
+    <ul id="task-list"></ul>
+    <p id="empty-msg" class="empty">No tasks yet. Add one above.</p>
+
+    <footer>CSC418 DevOps for Cloud Computing Hamza Nayyar Butt- Lab Mid</footer>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

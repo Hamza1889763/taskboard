@@ -1,0 +1,50 @@
+# TaskBoard - multi-container setup (web + database)
+# Run:   docker compose up -d --build
+# Stop:  docker compose down          (keeps data in the volume)
+# Wipe:  docker compose down -v       (DELETES the volume / data)
+
+services:
+  # ---------- Container 1: Node.js web app ----------
+  web:
+    build: ./app                 # built from app/Dockerfile
+    image: taskboard-web:1.0     # tag for the custom image
+    ports:
+      - "80:3000"                # host port 80 -> container port 3000 (ALB sends traffic to 80)
+    environment:
+      MONGO_URL: mongodb://mongo:27017   # "mongo" = service name, resolved by Docker DNS
+      DB_NAME: taskboard
+      INSTANCE_ID: ${INSTANCE_ID:-local-machine}   # set by EC2 user-data via .env
+      AZ: ${AZ:-local}
+    depends_on:
+      mongo:
+        condition: service_healthy   # wait until DB passes its healthcheck
+    restart: unless-stopped
+    networks:
+      - taskboard-net
+
+  # ---------- Container 2: MongoDB database ----------
+  mongo:
+    image: mongo:7
+    # No "ports:" on purpose - the DB is reachable ONLY inside the Docker
+    # network, never from the internet. (security best practice)
+    volumes:
+      - mongo-data:/data/db          # named volume -> data survives container recreation
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+    networks:
+      - taskboard-net
+
+# Named volume managed by Docker (stored under /var/lib/docker/volumes/)
+volumes:
+  mongo-data:
+    name: taskboard-mongo-data
+
+# User-defined bridge network: gives containers DNS by service name
+networks:
+  taskboard-net:
+    driver: bridge
