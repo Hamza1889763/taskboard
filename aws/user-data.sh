@@ -4,7 +4,7 @@
 # installs Docker + Compose, pulls the code, and starts the containers.
 #
 # >>> CHANGE THIS to your own public GitHub repo URL <<<
-REPO_URL="https://github.com/YOUR-USERNAME/taskboard.git"
+REPO_URL="https://github.com/Hamza1889763/taskboard.git"
 
 set -euxo pipefail
 exec > /var/log/user-data.log 2>&1     # log everything for debugging
