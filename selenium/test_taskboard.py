@@ -44,6 +44,9 @@ class TaskBoardTest(unittest.TestCase):
 
     def setUp(self):
         self.driver.get(APP_URL)
+        # filters are remembered in localStorage; start every test unfiltered
+        self.driver.execute_script("localStorage.clear()")
+        self.driver.get(APP_URL)
 
     def test_1_page_title(self):
         """Page loads and has the correct <title>"""
@@ -78,6 +81,45 @@ class TaskBoardTest(unittest.TestCase):
         titles = [e.text for e in self.driver.find_elements(By.CSS_SELECTOR, "#task-list .task-title")]
         self.assertIn(title, titles)
         self.driver.save_screenshot(os.path.join(SHOT_DIR, "task_added.png"))
+
+    def _card(self, title):
+        xpath = f"//li[contains(@class,'task-item')][.//span[@class='task-title' and text()='{title}']]"
+        return self.wait.until(EC.presence_of_element_located((By.XPATH, xpath)))
+
+    def test_6_quick_add_tags_and_priority(self):
+        """Quick-add parses '#tag' and '!high' out of the title"""
+        stamp = int(time.time())
+        box = self.wait.until(EC.element_to_be_clickable((By.ID, "task-input")))
+        box.send_keys(f"Tagged task {stamp} #selenium !high")
+        self.driver.find_element(By.ID, "add-btn").click()
+
+        card = self._card(f"Tagged task {stamp}")
+        self.assertIn("prio-high", card.get_attribute("class"))
+        self.assertIn("#selenium", card.text)
+
+    def test_7_mark_done_moves_to_done_column(self):
+        """Clicking the check button moves a card to the Done column and updates stats"""
+        title = f"Done task {int(time.time())}"
+        box = self.wait.until(EC.element_to_be_clickable((By.ID, "task-input")))
+        box.send_keys(title)
+        self.driver.find_element(By.ID, "add-btn").click()
+
+        self._card(title).find_element(By.CSS_SELECTOR, ".check").click()
+        done_col = (By.CSS_SELECTOR, ".column[data-status='done'] .cards")
+        self.wait.until(EC.text_to_be_present_in_element(done_col, title))
+        self.driver.save_screenshot(os.path.join(SHOT_DIR, "task_done.png"))
+
+    def test_8_search_filters_board(self):
+        """Typing in the search box filters the board via the API"""
+        title = f"Searchable {int(time.time())}"
+        box = self.wait.until(EC.element_to_be_clickable((By.ID, "task-input")))
+        box.send_keys(title)
+        self.driver.find_element(By.ID, "add-btn").click()
+        self._card(title)
+
+        search = self.driver.find_element(By.ID, "search")
+        search.send_keys(title)
+        self.wait.until(lambda d: [e.text for e in d.find_elements(By.CSS_SELECTOR, "#task-list .task-title")] == [title])
 
 
 if __name__ == "__main__":

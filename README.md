@@ -1,6 +1,6 @@
 # TaskBoard – CSC418 DevOps Lab Mid
 
-A simple 3-tier task app (HTML/JS front-end → Node.js/Express back-end → MongoDB) deployed with Docker and Docker Compose on AWS EC2 instances behind an Application Load Balancer, managed by an Auto Scaling Group, and tested with Selenium.
+A 3-tier Kanban task board (HTML/JS front-end → Node.js/Express back-end → MongoDB) deployed with Docker and Docker Compose on AWS EC2 instances behind an Application Load Balancer, managed by an Auto Scaling Group, and tested with Selenium.
 
 ```
 User/Browser ──► AWS Application Load Balancer (port 80)
@@ -14,26 +14,72 @@ User/Browser ──► AWS Application Load Balancer (port 80)
 Selenium WebDriver ──► ALB URL  (automated browser test)
 ```
 
+## Features
+
+- **Kanban board** with To do / In progress / Done columns – drag & drop cards, or use the arrow buttons / keyboard (← → on a focused card)
+- **Rich tasks**: description, priority (low/medium/high), due date, tags, checklist (subtasks)
+- **Quick add** syntax: `Fix login #api !high` → tag `api`, priority high
+- **Search, filter** (priority, tag) and **sort** (newest, oldest, due date, priority) – done on the server with MongoDB queries/aggregation
+- **Dashboard**: totals, in progress, completed, overdue count and a completion bar (`/api/stats` aggregation)
+- **Overdue / due today** highlighting, **undo delete**, **clear completed**
+- **Dark / light theme**, responsive layout, keyboard shortcuts (`N` new task, `/` search)
+- Infra badges for the DevOps demo: *Served by* (instance), *AZ*, *DB status*
+
 ## Project structure
 
 ```
 taskboard/
+├── .github/workflows/ci.yml   # CI: npm test + docker build on every push
 ├── app/
-│   ├── Dockerfile          # custom web image (Task 3)
+│   ├── Dockerfile             # custom web image (Task 3)
 │   ├── .dockerignore
 │   ├── package.json
-│   ├── server.js           # Express API + /health + /api/info
-│   └── public/             # front-end (index.html, app.js, style.css)
-├── docker-compose.yml      # web + mongo + named volume + network (Task 4, 5)
-├── aws/user-data.sh        # EC2 Launch Template boot script (Task 1)
+│   ├── server.js              # entry point: config, start, graceful shutdown
+│   ├── src/
+│   │   ├── app.js             # Express setup, security headers, /health, /api/info
+│   │   ├── db.js              # Mongo connection + retry, indexes, v1 data migration
+│   │   ├── errors.js          # HttpError, async handler, central error handler
+│   │   ├── validate.js        # input validation
+│   │   └── routes/tasks.js    # /api/tasks CRUD + filters, /api/stats
+│   ├── public/                # front-end (index.html, style.css, js/ ES modules)
+│   ├── test/                  # node:test unit + API tests (in-memory MongoDB)
+│   └── scripts/dev-memory.js  # run locally without Docker
+├── docker-compose.yml         # web + mongo + named volume + network (Task 4, 5)
+├── aws/user-data.sh           # EC2 Launch Template boot script (Task 1)
 ├── scripts/
-│   ├── linux-admin.sh      # Task 2 demo
-│   ├── volume-demo.sh      # Task 4 demo
-│   └── lb-check.sh         # Task 1 load-balancer proof
+│   ├── linux-admin.sh         # Task 2 demo
+│   ├── volume-demo.sh         # Task 4 demo
+│   └── lb-check.sh            # Task 1 load-balancer proof
 └── selenium/
-    ├── test_taskboard.py   # Task 6
+    ├── test_taskboard.py      # Task 6
     └── requirements.txt
 ```
+
+## REST API
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/health` | 200 when app + DB are up (ALB / Docker health check) |
+| GET | `/api/info` | which instance / AZ served the request |
+| GET | `/api/tasks?status=&priority=&tag=&q=&sort=` | list tasks (filters optional; sort = newest, oldest, due, priority) |
+| GET | `/api/tasks/:id` | one task |
+| POST | `/api/tasks` | create – `{ title, description?, status?, priority?, dueDate?, tags?, subtasks? }` |
+| PATCH | `/api/tasks/:id` | update given fields; an **empty body toggles done** (v1 behaviour) |
+| DELETE | `/api/tasks/:id` | delete one task |
+| DELETE | `/api/tasks?status=done` | clear all completed tasks |
+| GET | `/api/stats` | counts by status / priority, overdue, completion %, tag cloud |
+
+Invalid input returns `400 { "error": "..." }`. Old v1 tasks (`{ title, done }`) are migrated automatically on start-up.
+
+## Develop & test locally (no Docker needed)
+
+```bash
+cd app
+npm install
+npm test               # 13 unit + API tests against an in-memory MongoDB
+npm run dev:memory     # app on http://localhost:3000 with a throwaway DB
+```
+The first run downloads a MongoDB binary (~600 MB, cached afterwards). With a real MongoDB running use `npm run dev` instead.
 
 ---
 
@@ -141,10 +187,10 @@ bash scripts/linux-admin.sh
 docker --version
 docker compose version
 cat app/Dockerfile
-docker build -t taskboard-web:1.0 ./app          # build custom image
+docker build -t taskboard-web:2.0 ./app          # build custom image
 docker images | grep taskboard
 # run ONE container on its own (without compose) to show docker run:
-docker run -d --name web-solo -p 8080:3000 taskboard-web:1.0
+docker run -d --name web-solo -p 8080:3000 taskboard-web:2.0
 docker ps
 docker logs web-solo        # shows "listening"; DB retries are expected (no DB attached)
 curl -s localhost:8080/api/info
@@ -184,10 +230,13 @@ test_2_heading_element ... ok
 test_3_served_by_instance ... ok
 test_4_database_connected ... ok
 test_5_add_task_end_to_end ... ok
-Ran 5 tests in ...s
+test_6_quick_add_tags_and_priority ... ok
+test_7_mark_done_moves_to_done_column ... ok
+test_8_search_filters_board ... ok
+Ran 8 tests in ...s
 OK
 ```
-A screenshot is saved to `selenium/screenshots/task_added.png`.
+Screenshots are saved to `selenium/screenshots/` (`task_added.png`, `task_done.png`).
 
 ---
 

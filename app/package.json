@@ -1,13 +1,22 @@
 {
   "name": "taskboard",
-  "version": "1.0.0",
-  "description": "Simple Node.js + MongoDB task app for CSC418 DevOps lab",
+  "version": "2.0.0",
+  "description": "Kanban task board (Node.js + Express + MongoDB) for CSC418 DevOps lab",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "dev:memory": "node scripts/dev-memory.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
   },
   "dependencies": {
     "express": "^4.21.2",
     "mongodb": "^6.12.0"
+  },
+  "devDependencies": {
+    "mongodb-memory-server": "^10.1.2"
   }
 }

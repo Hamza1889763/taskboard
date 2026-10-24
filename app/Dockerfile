@@ -16,7 +16,7 @@ WORKDIR /app
 # 1) Copy only package files first -> Docker caches the npm install layer.
 #    Code changes won't force dependencies to reinstall.
 COPY package*.json ./
-RUN npm install --omit=dev && npm cache clean --force
+RUN npm ci --omit=dev && npm cache clean --force
 
 # 2) Copy the application source (files in .dockerignore are skipped)
 COPY . .

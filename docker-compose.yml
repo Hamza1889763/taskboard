@@ -7,7 +7,7 @@ services:
   # ---------- Container 1: Node.js web app ----------
   web:
     build: ./app                 # built from app/Dockerfile
-    image: taskboard-web:1.0     # tag for the custom image
+    image: taskboard-web:2.0     # tag for the custom image
     ports:
       - "80:3000"                # host port 80 -> container port 3000 (ALB sends traffic to 80)
     environment:

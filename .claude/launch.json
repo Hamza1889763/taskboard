@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "taskboard-memory",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "app", "run", "dev:memory"],
+      "port": 3000
+    }
+  ]
+}

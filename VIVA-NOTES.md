@@ -162,3 +162,31 @@ Short, confident answers. Where possible, point to *your own file* while answeri
 - *Difference between container health check and target group health check?* Docker's checks the container; the ALB's checks the instance from outside on `/health`. Both hit the same endpoint.
 - *How do you update the app?* Push to GitHub → on each instance `git pull && docker compose up -d --build`; better: build image once, push to ECR, and do an ASG **instance refresh**.
 - *What is DevOps?* Culture + practices joining development and operations: automation, CI/CD, infrastructure as code, monitoring, fast feedback.
+
+---
+
+## 7. The application itself (v2 – intermediate)
+
+**How is the back-end organised?** `server.js` only reads config and starts the server. `src/app.js` builds the Express app (so tests can create it without a real port), `src/routes/tasks.js` holds the API, `src/db.js` the connection/retry/indexes, `src/validate.js` the input checks, `src/errors.js` one central error handler.
+
+**What does a task look like?** `{ title, description, status: todo|doing|done, priority: low|medium|high, dueDate: "YYYY-MM-DD"|null, tags: [], subtasks: [{title, done}], createdAt, updatedAt, createdOn }`. `done` is still stored for backwards compatibility.
+
+**Why validate on the server if the form already checks?** Anyone can call the API with curl – the server must never trust the client. Bad input → `400` with a message.
+
+**How do filters/sort work?** Query parameters (`?status=doing&priority=high&q=alb&sort=due`) become a MongoDB `$match`. Sorting by priority uses an **aggregation pipeline** (`$addFields` computes a rank, then `$sort`). Search input is regex-escaped so users can't inject patterns.
+
+**What is `/api/stats`?** One aggregation with `$facet` that returns counts by status, open tasks by priority, overdue count and top tags in a single DB round-trip.
+
+**Indexes?** `{status, createdAt}`, `{dueDate}`, `{tags}` – created on start-up so filtering doesn't scan the whole collection.
+
+**Migration?** v1 tasks only had `{title, done}`. On start-up an `updateMany` with a pipeline sets `status` from `done` and fills defaults – old data keeps working after the upgrade.
+
+**Graceful shutdown?** `docker stop` sends SIGTERM → the server stops accepting connections, finishes open requests, closes Mongo, exits 0.
+
+**Security headers?** `X-Content-Type-Options`, `X-Frame-Options`, `Content-Security-Policy` (only scripts from our own origin), JSON body limited to 20 kB, `x-powered-by` hidden.
+
+**Front-end?** Plain JavaScript **ES modules** (`api.js` = fetch wrapper, `ui.js` = rendering, `main.js` = state + events). Optimistic updates (card moves immediately, rolls back on error), drag & drop with the HTML5 API, `<dialog>` for editing, undo delete (the DELETE request is delayed 5 s), dark mode with CSS variables, filters remembered in `localStorage`.
+
+**Automated tests?** `npm test` runs Node's built-in test runner: unit tests for validation and API integration tests against an **in-memory MongoDB** (mongodb-memory-server). Selenium covers the UI end-to-end. **GitHub Actions** (`.github/workflows/ci.yml`) runs the tests and a `docker build` on every push – that's CI.
+
+**Testing pyramid?** Many fast unit tests → fewer integration (API + DB) tests → a few slow E2E (Selenium) tests.
